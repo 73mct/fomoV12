@@ -1,0 +1,52 @@
+name: Build PocketFlip Android APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v4
+
+      - name: Extract source ZIP if uploaded as one file
+        shell: bash
+        run: |
+          if [ ! -f app/build.gradle ]; then
+            ZIP_FILE="$(find . -maxdepth 1 -type f -name '*.zip' -print -quit)"
+            if [ -z "$ZIP_FILE" ]; then
+              echo "No app/build.gradle and no source ZIP found in repository root."
+              exit 1
+            fi
+            unzip -oq "$ZIP_FILE" -d .
+          fi
+          test -f settings.gradle
+          test -f app/build.gradle
+          test -f app/src/main/AndroidManifest.xml
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build debug APK
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketFlip-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
